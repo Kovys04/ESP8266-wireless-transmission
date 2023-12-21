@@ -1,0 +1,42 @@
+#include <SoftwareSerial.h>
+#include <ESP8266WiFi.h>
+
+const char *ssid = "CKN_Wireless";  // Název vytvořené sítě
+const char *password = "xCJr3XNUa2UF8tc"; // Heslo pro vytvořenou síť
+const int rxPinRS485 = 3;  // RX pin pro RS485 transceiver
+const int txPinRS485 = 2;  // TX pin pro RS485 transceiver
+const long baudRateRS485 = 2400;  // Baud rate (rychlost komunikace) pro komunikaci RS485
+const int serverPort = 1234;  // Port pro přijímání dat přes Wi-Fi
+
+SoftwareSerial rs485(rxPinRS485, txPinRS485);  // Vytvoření instance SoftwareSerial pro RS485
+
+WiFiServer server(serverPort);  // Vytvoření Wi-Fi serveru na zvoleném portu
+
+void setup() {
+  Serial.begin(115200); // Baud rate (rychlost komunikace) pro komunikaci s PC přes USB
+  rs485.begin(baudRateRS485); // Nastavení Baud ratu pro komunikaci RS485 z proměnné
+
+  // Nastavení ESP8266 jako access pointu
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(ssid, password);  // Nastavení názvu a hesla pro síť z proměnných
+  server.begin();
+  delay(10000);
+  Serial.println("CKN_Wireless connection started");  // Potvrzení úspěšného nastavení sítě
+}
+
+void loop() {
+  // Příjem dat přes Wi-Fi
+  WiFiClient client = server.available(); // Kontrola dostupného serveru
+  if (client) {
+    while (client.available() > 0) {
+      char incomingByte = client.read();  // Přečtení dat ze serveru
+      Serial.write(incomingByte); // Propsání přijatých dat na sériovou komunikaci
+
+      // Odeslání přijatých dat na RS485
+      rs485.write(incomingByte); // Propsání přijatých dat na RS485 komunikaci
+    }
+    client.stop();  // Zastavení
+  }
+
+  // RS485 komunikace - další zpracování RS485 dat
+}
