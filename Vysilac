@@ -1,0 +1,62 @@
+#include <SoftwareSerial.h>
+#include <ESP8266WiFi.h>
+
+const char *ssid = "CKN_Wireless";  // Název sítě na kterou se připojuje
+const char *password = "xCJr3XNUa2UF8tc"; // Heslo k síti ke které se připojuje
+const int rxPinRS485 = 3;  // RX pin pro RS485 transceiver
+const int txPinRS485 = 2;  // TX pin pro RS485 transceiver
+const long baudRateRS485 = 2400;  // Baud rate (rychlost komunikace) pro komunikaci RS485
+
+// Proměnné pro kontrolu připojení k síti
+unsigned long previousMillis = 0; // Odezva
+unsigned long interval = 5000;  // Interval pokusu připojení
+
+SoftwareSerial rs485(rxPinRS485, txPinRS485);  // Vytvoření instance SoftwareSerial pro RS485
+
+void setup() {
+  Serial.begin(115200); // Baud rate (rychlost komunikace) pro komunikaci s PC přes USB
+  rs485.begin(baudRateRS485); // Nastavení Baud ratu pro komunikaci RS485 z proměnné
+
+  // Připojení k Wi-Fi
+  WiFi.begin(ssid, password);  // Údaje sítě ke které se připojujeme z proměnných
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(5000);
+    Serial.println("Connecting to CKN_Wireless...");  // Informace o pokusu se připojit k síti
+  }
+  Serial.println("Connected to CKN_Wireless");  // Potvrzení úspěšného připojení k síti
+}
+
+void loop() {
+
+// Kontrola připojení k síti a znovupřipojení po ztrátě signálu
+  unsigned long currentMillis = millis();
+if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >=interval)) {
+  Serial.println("Reconnecting to CKN_Wireless...");  // Informace o pokusu se opět připojit k síti
+  WiFi.disconnect();  // Odpojení od sítě
+  WiFi.begin(ssid, password);   // Údaje sítě ke které se připojujeme z proměnných
+  previousMillis = currentMillis;
+}
+  // RS485 komunikace
+  while (rs485.available() > 0) {   // Kontrola dostupnosti RS485 komunikace
+    char incomingByte = rs485.read();   // Přečtení dat z RS485 komunikace
+    Serial.write(incomingByte);
+
+    // Odeslání přijatých dat přes Wi-Fi
+    sendDataOverWiFi(incomingByte);
+  }
+
+  // Další úkony s daty z RS485
+}
+
+// Funkce pro odeslání dat přes Wi-Fi
+void sendDataOverWiFi(char data) {
+  if (WiFi.status() == WL_CONNECTED) {
+    WiFiClient client;
+    if (client.connect("192.168.4.2", 1234)) {  // Nastavte cílovou IP adresu a port
+      client.print("Data from RS485: ");
+      client.println(data);
+      client.println();
+      client.stop();
+    }
+  }
+}
